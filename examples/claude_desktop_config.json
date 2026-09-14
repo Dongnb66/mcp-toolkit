@@ -2,7 +2,7 @@
   "mcpServers": {
     "mcp-toolkit": {
       "command": "node",
-      "args": ["C:/Users/dong/WorkBuddy/2026-09-06-00-45-18/mcp-toolkit/dist/index.js"]
+      "args": ["C:/path/to/mcp-toolkit/dist/index.js"]
     }
   }
 }
