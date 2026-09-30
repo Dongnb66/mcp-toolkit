@@ -51,7 +51,7 @@
 | `tc3_sign` | 腾讯云 API 3.0 TC3-HMAC-SHA256 签名请求头（含 Authorization） | 复用 python-learning-agent 签名器 |
 | `text_chunk` | RAG 文本切块：滑动窗口 + overlap，优先句末断点 | 复用 RAG 预处理经验 |
 | `date_calc` | 日期计算：加减/求差/星期/闰年/当月天数/今天（UTC 规避跨日误差） | 独立纯函数 |
-| `sqlite_query` | SQLite 只读查询（SELECT/WITH/PRAGMA），readOnly 打开杜绝写操作 | Node 22 内置 `node:sqlite` |
+| `sqlite_query` | SQLite 只读查询（SELECT/WITH/PRAGMA），readOnly 打开杜绝写操作；可读路径受 `MCP_SQLITE_ROOT` 限制 | Node 22 内置 `node:sqlite` |
 | `webpage_extract` | 抓取网页抽取纯文本：标题/标题层级/链接/正文（带超时） | 独立纯函数 |
 | `jwt_decode` | JWT 解码 + HMAC 验签（HS256/384/512，常量时间比较） | 复用 campus-mutual-aid JWT 经验 |
 | `health_ping` | 健康检查：服务名/版本/运行时长/Node 版本/平台 | 独立纯函数 |
@@ -88,7 +88,10 @@ npx @modelcontextprotocol/inspector node dist/index.js
 
 1. **分层**：`lib/` 纯函数 + `tools/` 薄壳，业务逻辑可脱离 MCP 独立测试，也让每个文件职责单一、review 一眼看懂。
 2. **零第三方依赖的签名器**：TC3-HMAC-SHA256 用 Node 内置 `node:crypto` 实现，密钥只走函数入参/环境变量、绝不入日志；用腾讯云官方公开测试向量做单测对拍（`HashedCanonicalRequest` 逐字节一致）。
-3. **只读 SQLite 双重保险**：`sqlite_query` 既用正则限制语句前缀，又以 `readOnly: true` 打开，杜绝通过 MCP 工具执行写操作。
+3. **只读 SQLite 三重保险**：`sqlite_query` ①用正则限制语句前缀（只允许 SELECT/WITH/PRAGMA）、②以 `readOnly: true` 打开、③**限制可读路径的根目录**。前两条杜绝写操作，第三条杜绝「本机任意 sqlite 都能读」。
+   - 路径边界由环境变量 **`MCP_SQLITE_ROOT`** 指定，不设则用进程工作目录；`dbPath` 必须落在该目录内。
+   - 判边界分两层：先按解析后的字面路径判（挡住 `..` 与越界绝对路径），再按 `realpath` 判（挡住软链接绕过）。
+   - 为什么需要第三条：MCP 宿主里的模型可能被**间接提示注入**（读到不可信内容后被诱导继续调工具）——一个不设边界的读取工具就是数据外泄面。「不可信返回内容不得扩大工具权限」这条原则，落到工具层就是这个边界。
 4. **`node:sqlite` 的坑**：它是 Node 22 实验内置模块，不在 `builtinModules` 清单里，vite/vitest 会误当普通包解析失败 → 用 `createRequire` 运行时加载 + 纯类型查询绕开。
 5. **日志隔离**：stdio 下 stdout 走协议通信，日志一律写 stderr，避免污染 JSON-RPC 流。
 6. **安全**：真实密钥通过 `.env`（已 gitignore）+ 环境变量注入，官方向量密钥只经 `TC3_SAMPLE_SECRET_KEY` 测试专用变量，不触发 GitHub Secret Scanning。
