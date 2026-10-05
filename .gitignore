@@ -7,3 +7,5 @@ coverage/
 
 # Vite/Vitest 临时文件
 *.timestamp-*.mjs
+.vitest-tmp/
+.test-report.json

@@ -65,7 +65,7 @@ npm install
 # 类型检查 + 构建
 npm run typecheck && npm run build
 
-# 单元测试（48 个用例）
+# 单元测试（50 个用例）
 npm test
 
 # 端到端冒烟测试（连上编译产物走完整协议链路）
@@ -113,7 +113,7 @@ mcp-toolkit/
 │   │   └── health.ts       #   健康检查
 │   └── tools/              # 薄壳层（zod schema + 转发）
 │       └── *.ts            #   8 个工具 + index.ts 统一注册
-├── test/                   # 48 个单测用例
+├── test/                   # 50 个单测用例
 ├── examples/               # Claude Desktop 配置 + 冒烟客户端
 ├── .github/workflows/ci.yml
 └── package.json
