@@ -4,81 +4,278 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <link rel="icon" href="data:,">
-<title>MCP 工具 Playground</title>
+<title>MCP 工具 Playground · 实时 Trace × 协议零件</title>
 <style>
- body{font-family:system-ui,"Segoe UI","Microsoft YaHei",sans-serif;margin:0;background:#f6f7f9;color:#1f2937}
- .wrap{max-width:960px;margin:0 auto;padding:24px 16px 64px}
- h1{font-size:22px} h2{font-size:16px;margin:0 0 8px}
- .tip{background:#eef2ff;border:1px solid #c7d2fe;border-radius:8px;padding:10px 12px;font-size:13px;margin:12px 0}
- .card{background:#fff;border:1px solid #e5e7eb;border-radius:10px;padding:16px;margin:14px 0}
+ :root{--ink:#1f2937;--line:#e5e7eb;--blue:#2563eb;--dark:#0b1220;--dark2:#111a2e;--mono:ui-monospace,"Cascadia Code",Consolas,"Courier New",monospace}
+ *{box-sizing:border-box}
+ body{font-family:system-ui,"Segoe UI","Microsoft YaHei",sans-serif;margin:0;background:#f6f7f9;color:var(--ink)}
+ .hidden{display:none!important}
+ header{position:sticky;top:0;z-index:20;background:#fff;border-bottom:1px solid var(--line);padding:10px 18px;display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+ header h1{font-size:17px;margin:0}
+ header .sub{font-size:12px;color:#6b7280}
+ .modes{display:flex;gap:6px;margin-left:auto}
+ .modes button{margin:0;background:#eef2f7;color:#374151;border:1px solid transparent;border-radius:999px;padding:6px 14px;font-size:13px;cursor:pointer}
+ .modes button.on{background:var(--blue);color:#fff}
+ .wrap{max-width:1280px;margin:0 auto;padding:16px 18px 64px}
+ .grid{display:grid;grid-template-columns:minmax(0,1fr) 400px;gap:16px;align-items:start}
+ @media(max-width:1020px){.grid{grid-template-columns:1fr}.rail{position:static!important;max-height:none!important}}
+ /* 工具步骤条 */
+ .tabs{display:flex;gap:6px;overflow-x:auto;padding-bottom:6px}
+ .tabs button{margin:0;white-space:nowrap;background:#fff;border:1px solid var(--line);color:#374151;border-radius:8px;padding:7px 12px;font-size:13px;cursor:pointer}
+ .tabs button.on{border-color:var(--blue);color:var(--blue);background:#eff6ff;font-weight:600}
+ .tabs .n{display:inline-block;min-width:17px;height:17px;line-height:17px;text-align:center;border-radius:50%;background:#e5e7eb;color:#374151;font-size:11px;margin-right:6px}
+ .tabs button.on .n{background:var(--blue);color:#fff}
+ .card{background:#fff;border:1px solid var(--line);border-radius:10px;padding:16px;margin:10px 0}
+ h2{font-size:16px;margin:0 0 8px}
  label{display:block;font-size:13px;margin:8px 0 4px;color:#374151}
- input,textarea,select{width:100%;box-sizing:border-box;border:1px solid #d1d5db;border-radius:6px;padding:8px;font-size:13px;font-family:inherit}
- textarea{min-height:72px}
- button{margin-top:10px;background:#2563eb;color:#fff;border:0;border-radius:6px;padding:8px 16px;font-size:13px;cursor:pointer}
- button:hover{background:#1d4ed8}
- pre{background:#0f172a;color:#e2e8f0;border-radius:8px;padding:12px;font-size:12px;overflow:auto;max-height:320px;white-space:pre-wrap;word-break:break-all}
+ input,textarea,select{width:100%;border:1px solid #d1d5db;border-radius:6px;padding:8px;font-size:13px;font-family:inherit}
+ textarea{min-height:70px}
+ button{margin-top:10px;background:var(--blue);color:#fff;border:0;border-radius:6px;padding:8px 16px;font-size:13px;cursor:pointer}
+ button:hover{filter:brightness(1.08)}
+ button:disabled{background:#9ca3af;cursor:not-allowed}
+ button.ghost{background:#eef2f7;color:#374151}
+ pre{background:var(--dark);color:#e2e8f0;border-radius:8px;padding:12px;font-size:12px;font-family:var(--mono);overflow:auto;max-height:300px;white-space:pre-wrap;word-break:break-all;margin:8px 0 0}
  .small{font-size:12px;color:#6b7280}
  .err{color:#b91c1c}
- .row{display:flex;gap:10px} .row>div{flex:1}
+ .row{display:flex;gap:10px}.row>div{flex:1}
+ .tip{background:#eef2ff;border:1px solid #c7d2fe;border-radius:8px;padding:10px 12px;font-size:13px;margin:10px 0}
+ /* 深色 trace 栏 */
+ .rail{position:sticky;top:70px;background:var(--dark);border-radius:12px;color:#cbd5e1;max-height:calc(100vh - 92px);display:flex;flex-direction:column;overflow:hidden;border:1px solid #1e293b}
+ .rail-head{padding:12px 14px 8px;font-size:13px;font-weight:600;color:#f1f5f9;display:flex;align-items:center;gap:8px}
+ .rail-head .dot{width:8px;height:8px;border-radius:50%;background:#22c55e;animation:blink 1.6s infinite}
+ @keyframes blink{50%{opacity:.35}}
+ #railStatus{margin-left:auto;font-weight:400;font-size:11px;color:#94a3b8;font-family:var(--mono)}
+ .lanes{display:flex;gap:6px;padding:0 14px 10px;font-size:10px;font-family:var(--mono)}
+ .lanes span{border:1px solid #334155;border-radius:4px;padding:2px 7px;color:#93c5fd}
+ .lanes span:nth-child(2){color:#fbbf24}.lanes span:nth-child(3){color:#86efac}
+ .frames{overflow-y:auto;padding:4px 14px 10px;flex:1}
+ .rail-empty{font-size:12px;color:#64748b;padding:18px 4px;line-height:1.7}
+ .rail-foot{padding:8px 14px;border-top:1px solid #1e293b;font-size:11px;color:#64748b}
+ .frame{background:var(--dark2);border:1px solid #24304a;border-left:3px solid #3b82f6;border-radius:8px;padding:8px 10px;margin:8px 0;cursor:pointer;opacity:0;transform:translateY(10px)}
+ .frame.in{animation:frameIn .45s ease forwards}
+ .frame.static{opacity:1;transform:none}
+ @keyframes frameIn{to{opacity:1;transform:none}}
+ .frame:hover{border-color:#3b82f6}
+ .frame.k-throw{border-left-color:#ef4444}
+ .frame.k-return{border-left-color:#22c55e}
+ .frame.k-response{border-left-color:#a78bfa}
+ .f-head{display:flex;align-items:center;gap:6px;font-size:11px;font-family:var(--mono);flex-wrap:wrap}
+ .f-head .lane{color:#93c5fd}
+ .f-head .lane.to-lib,.f-head .lane.from-lib{color:#86efac}
+ .f-head .lane.to-edge,.f-head .lane.from-edge{color:#fbbf24}
+ .f-head .arrow{color:#f8fafc;animation:pulse 1.2s infinite}
+ @keyframes pulse{50%{opacity:.4;transform:translateX(2px)}}
+ .f-head .kind{margin-left:auto;color:#94a3b8;font-size:10px}
+ .f-head .ms{color:#fbbf24}
+ .f-label{font-size:11px;color:#e2e8f0;margin:4px 0 2px;font-family:var(--mono)}
+ .f-body{margin:4px 0 0;background:#0a0f1c;color:#a5b4fc;font-size:10.5px;font-family:var(--mono);border-radius:6px;padding:7px 8px;max-height:120px;overflow:hidden;white-space:pre-wrap;word-break:break-all}
+ .f-parts{font-size:10px;color:#64748b;margin-top:4px}
+ /* 零件视图弹窗 */
+ .overlay{position:fixed;inset:0;background:rgba(2,6,23,.66);z-index:50;display:flex;align-items:center;justify-content:center;padding:20px}
+ .parts-modal{background:var(--dark);border:1px solid #334155;border-radius:12px;width:min(920px,100%);max-height:86vh;display:flex;flex-direction:column;color:#e2e8f0}
+ .parts-head{display:flex;align-items:center;padding:12px 16px;border-bottom:1px solid #1e293b;font-size:13px;font-family:var(--mono);color:#93c5fd}
+ .parts-head button{margin:0 0 0 auto;background:#1e293b;color:#e2e8f0;padding:4px 12px}
+ .parts-body{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(0,1fr);gap:0;overflow:hidden;flex:1;min-height:0}
+ @media(max-width:760px){.parts-body{grid-template-columns:1fr;overflow-y:auto}}
+ .parts-tree{overflow-y:auto;padding:12px 14px;font-family:var(--mono);font-size:12px;border-right:1px solid #1e293b}
+ .p-row{display:flex;gap:8px;align-items:baseline;padding:2px 0;border-radius:4px}
+ .p-row.sel{background:#1e293b}
+ .p-key{margin:0;background:none;border:1px solid #334155;color:#7dd3fc;border-radius:4px;padding:1px 7px;font-size:11.5px;font-family:var(--mono);cursor:pointer}
+ .p-key:hover{background:#1d4ed8;color:#fff;border-color:#1d4ed8}
+ .p-val{color:#94a3b8;font-size:11px;word-break:break-all}
+ .parts-explain{overflow-y:auto;padding:16px}
+ .parts-explain h3{margin:0 0 8px;font-size:14px;color:#fbbf24}
+ .parts-explain p{margin:0;font-size:13px;line-height:1.8;color:#cbd5e1}
+ .parts-explain .hint{color:#64748b;font-size:12px}
+ /* 对照模式 */
+ .cmp-banner{background:linear-gradient(90deg,#eff6ff,#f0fdf4);border:1px solid #bfdbfe;border-radius:10px;padding:12px 14px;font-size:13px;margin:10px 0;line-height:1.7}
+ .caps-row{display:flex;gap:14px;align-items:center;flex-wrap:wrap;background:#fff;border:1px solid var(--line);border-radius:10px;padding:10px 14px;font-size:13px;margin:10px 0}
+ .caps-row label{display:flex;gap:6px;align-items:center;margin:0;cursor:pointer}
+ .caps-row input{width:auto}
+ #capsDiff{margin-left:auto;font-family:var(--mono);font-size:12px;color:#6b7280}
+ #capsDiff b.add{color:#16a34a}#capsDiff b.del{color:#dc2626}
+ .cmp-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;align-items:start}
+ @media(max-width:900px){.cmp-grid{grid-template-columns:1fr}}
+ .cmp-col{background:var(--dark);border-radius:12px;padding:14px;color:#cbd5e1;border:1px solid #1e293b}
+ .cmp-col h3{margin:0 0 4px;font-size:14px;color:#f1f5f9}
+ .cmp-col .sub{font-size:11px;color:#64748b;margin-bottom:8px}
+ .msg{background:var(--dark2);border:1px solid #24304a;border-radius:8px;margin:8px 0;padding:8px 10px;cursor:pointer}
+ .msg:hover{border-color:#3b82f6}
+ .msg-head{font-size:11px;font-family:var(--mono);color:#93c5fd;display:flex;gap:8px;align-items:center}
+ .msg.s2c .msg-head{color:#86efac}
+ .msg-head .dir{border:1px solid #334155;border-radius:4px;padding:0 6px;font-size:10px}
+ .msg pre{margin:6px 0 0;background:#0a0f1c;font-size:10.5px;max-height:220px;padding:8px}
+ .diff-add{background:rgba(34,197,94,.18);color:#86efac;display:inline-block;width:100%;border-left:2px solid #22c55e;padding-left:4px}
+ .diff-del{color:#f87171;text-decoration:line-through;opacity:.85;display:inline-block;width:100%;border-left:2px solid #ef4444;padding-left:4px}
+ .cmp-col button{background:#1d4ed8}
+ table.diff{width:100%;border-collapse:collapse;background:#fff;border-radius:10px;overflow:hidden;font-size:12.5px;margin:14px 0;border:1px solid var(--line)}
+ table.diff th,table.diff td{border:1px solid var(--line);padding:8px 10px;text-align:left;vertical-align:top;line-height:1.6}
+ table.diff th{background:#f3f4f6;font-size:12px}
+ table.diff td.dim{font-weight:600;white-space:nowrap;background:#fafafa}
+ table.diff td.note{color:#6b7280;font-size:11.5px}
+ /* 课程模式 */
+ .course-head{display:flex;align-items:center;gap:12px;margin:10px 0}
+ .course-head .bar{flex:1;height:8px;background:#e5e7eb;border-radius:99px;overflow:hidden}
+ .course-head .bar i{display:block;height:100%;background:linear-gradient(90deg,#2563eb,#22c55e);transition:width .5s}
+ .step{background:#fff;border:1px solid var(--line);border-radius:10px;padding:14px 16px;margin:10px 0}
+ .step.locked{opacity:.62}
+ .step.done{border-color:#86efac}
+ .step-head{display:flex;align-items:center;gap:10px;font-size:15px;font-weight:600}
+ .step-state{margin-left:auto;font-size:11px;font-weight:400;border-radius:99px;padding:2px 10px;background:#f3f4f6;color:#6b7280}
+ .step.done .step-state{background:#dcfce7;color:#15803d}
+ .step .goal{font-size:13px;color:#4b5563;margin:6px 0}
+ .step-modes{display:flex;gap:6px;flex-wrap:wrap}
+ .step-modes button{margin:4px 0 0;font-size:12px;padding:6px 12px}
+ .quiz{margin-top:10px;background:#f8fafc;border:1px solid var(--line);border-radius:8px;padding:12px}
+ .quiz .q{font-size:13px;font-weight:600;margin-bottom:8px}
+ .quiz .opt{display:block;width:100%;text-align:left;margin:6px 0;background:#fff;color:#374151;border:1px solid #d1d5db;font-size:13px}
+ .quiz .opt:hover{border-color:var(--blue)}
+ .quiz .opt.right{border-color:#22c55e;background:#f0fdf4;color:#15803d}
+ .quiz .opt.wrong{border-color:#ef4444;background:#fef2f2;color:#b91c1c}
+ .quiz .fb{font-size:12.5px;margin-top:8px;line-height:1.7}
+ .review{margin-top:10px;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:12px;font-size:13px;line-height:1.8;color:#166534}
+ .mini-out{font-size:12px;color:#6b7280;margin-top:8px;font-family:var(--mono)}
+ .done-banner{background:#f0fdf4;border:1px solid #86efac;border-radius:10px;padding:12px 14px;font-size:13px;color:#15803d;margin:10px 0}
+ footer{font-size:12px;color:#6b7280;margin-top:18px;line-height:1.8}
+ details{margin:10px 0;font-size:12.5px}
+ summary{cursor:pointer;color:#4b5563}
 </style>
 </head>
 <body>
+<header>
+ <h1>MCP 工具 Playground</h1>
+ <span class="sub">同一份 lib 纯函数 · 两个宿主 · 报文逐帧可见</span>
+ <nav class="modes">
+  <button id="m-play" class="on" onclick="setMode('play')">自由把玩</button>
+  <button id="m-course" onclick="setMode('course')">引导课程</button>
+  <button id="m-compare" onclick="setMode('compare')">宿主对照</button>
+ </nav>
+</header>
 <div class="wrap">
-<h1>MCP 工具 Playground</h1>
-<div class="tip">同一份 lib 纯函数源码的两个宿主：左边是 MCP stdio 服务器（任意 MCP 宿主即插即用），这里把它跑在 Qoder Sites 的 edge 函数上，浏览器直接调用。lib 层零 MCP 依赖、零 I/O（网页抓取除外），协议与业务解耦。</div>
 
-<div class="card"><h2>文本切块 text_chunk</h2>
-<label>文本</label><textarea id="c-text">RAG 的第一步是切块。块太小语义碎片化，块太大稀释相关性。滑动窗口加句末断点回退，是精度与完整性之间的折中。重叠保证相邻块信息不丢失。</textarea>
-<div class="row"><div><label>chunkSize</label><input id="c-size" value="40"></div><div><label>overlap</label><input id="c-over" value="8"></div></div>
-<button onclick="run('text_chunk',{text:el('c-text').value,chunkSize:Number(el('c-size').value),overlap:Number(el('c-over').value)},'c-out')">切块</button>
-<pre id="c-out" class="small">点「切块」查看结果</pre></div>
+ <div class="grid" id="grid-main">
+  <div id="col-left">
+   <!-- 自由把玩：首屏即工具 -->
+   <div id="mode-play">
+    <div class="tip">点任意工具立即调用，右侧深色栏逐帧展示 <b>browser → edge 函数 → src/lib</b> 的真实报文；<b>点击任一报文</b>进入字段级「零件」视图，每个 key 都能点开看解释。切到「宿主对照」看同一份 lib 在 MCP stdio 与 Sites edge 两种宿主下的报文差异。</div>
+    <div class="tabs" id="toolTabs"></div>
 
-<div class="card"><h2>日期计算 date_calc</h2>
-<div class="row"><div><label>操作</label><select id="d-op"><option>add_days</option><option>diff_days</option><option>weekday</option><option>days_in_month</option><option>is_leap_year</option><option>today</option></select></div>
-<div><label>date / from / year</label><input id="d-a" value="2026-11-17"></div>
-<div><label>days / to / month</label><input id="d-b" value="25"></div></div>
-<button onclick="run('date_calc',dateArgs(),'d-out')">计算</button>
-<pre id="d-out" class="small">UTC 口径，凌晨不翻车</pre></div>
+    <section class="card panel" id="panel-text_chunk"><h2>文本切块 text_chunk</h2>
+     <label>文本</label><textarea id="c-text">RAG 的第一步是切块。块太小语义碎片化，块太大稀释相关性。滑动窗口加句末断点回退，是精度与完整性之间的折中。重叠保证相邻块信息不丢失。</textarea>
+     <div class="row"><div><label>chunkSize</label><input id="c-size" value="40"></div><div><label>overlap</label><input id="c-over" value="8"></div></div>
+     <button onclick="callTool('text_chunk')">切块</button>
+     <pre id="c-out" class="small">点「切块」查看结果，右侧同步出现 trace</pre>
+    </section>
 
-<div class="card"><h2>地点口碑榜 hotspot_rank</h2>
-<div class="small">热度 = 发帖数×2 + 累计投票×3 + 平均评分×5，置顶优先。与 travel-rank 后端算法逐字一致。</div>
-<label>locations（JSON 数组）</label><textarea id="h-loc">[{"id":1,"name":"图书馆","pinned":1},{"id":2,"name":"一食堂"},{"id":3,"name":"操场"}]</textarea>
-<label>posts（JSON 数组）</label><textarea id="h-post">[{"id":1,"locationId":1,"rating":5,"votes":3},{"id":2,"locationId":1,"rating":4,"votes":1},{"id":3,"locationId":2,"rating":4,"votes":6},{"id":4,"locationId":3,"rating":5,"votes":2}]</textarea>
-<button onclick="run('hotspot_rank',{locations:JSON.parse(el('h-loc').value),posts:JSON.parse(el('h-post').value)},'h-out')">排名</button>
-<pre id="h-out" class="small">点「排名」查看结果</pre></div>
+    <section class="card panel hidden" id="panel-jwt_decode"><h2>JWT 解码 / 验签 jwt_decode</h2>
+     <label>token</label><textarea id="j-token"></textarea>
+     <label>secret（可选，填了才验签；HS256/384/512）</label><input id="j-secret" value="demo-secret">
+     <button onclick="callTool('jwt_decode')">解码 / 验签</button>
+     <button class="ghost" onclick="makeJwt()">生成示例 token</button>
+     <pre id="j-out" class="small">解码不验签；验签才校验，常量时间比较</pre>
+    </section>
 
-<div class="card"><h2>JWT 解码 / 验签 jwt_decode</h2>
-<label>token</label><textarea id="j-token"></textarea>
-<label>secret（可选，填了才验签；HS256/384/512）</label><input id="j-secret" value="demo-secret">
-<button onclick="run('jwt_decode',{token:el('j-token').value,secret:el('j-secret').value||undefined},'j-out')">解码</button>
-<button onclick="makeJwt()">生成示例 token</button>
-<pre id="j-out" class="small">解码不验签；验签才校验，常量时间比较</pre></div>
+    <section class="card panel hidden" id="panel-tc3_sign"><h2>TC3 签名 tc3_sign</h2>
+     <div class="small">腾讯云 API 3.0 TC3-HMAC-SHA256。请用演示密钥，不要填真实密钥。</div>
+     <div class="row"><div><label>secretId</label><input id="t-id" value="AKID-demo-not-a-real-key"></div><div><label>secretKey</label><input id="t-key" value="demo-key-not-a-real-secret"></div></div>
+     <div class="row"><div><label>timestamp（秒，可选）</label><input id="t-ts" value="1731888000"></div><div><label>action</label><input id="t-action" value="SendSms"></div></div>
+     <label>payload（JSON）</label><textarea id="t-payload">{"PhoneNumberSet":["+8613800000000"],"TemplateId":"1234567"}</textarea>
+     <button onclick="callTool('tc3_sign')">签名</button>
+     <pre id="t-out" class="small">与腾讯云官方测试向量逐字节对拍过</pre>
+    </section>
 
-<div class="card"><h2>TC3 签名 tc3_sign</h2>
-<div class="small">腾讯云 API 3.0 TC3-HMAC-SHA256。请用演示密钥，不要填真实密钥。</div>
-<div class="row"><div><label>secretId</label><input id="t-id" value="AKID-demo-not-a-real-key"></div>
-<div><label>secretKey</label><input id="t-key" value="demo-key-not-a-real-secret"></div></div>
-<div class="row"><div><label>timestamp（秒，可选）</label><input id="t-ts" value="1731888000"></div>
-<div><label>action</label><input id="t-action" value="SendSms"></div></div>
-<label>payload（JSON）</label><textarea id="t-payload">{"PhoneNumberSet":["+8613800000000"],"TemplateId":"1234567"}</textarea>
-<button onclick="run('tc3_sign',{secretId:el('t-id').value,secretKey:el('t-key').value,timestamp:Number(el('t-ts').value)||undefined,action:el('t-action').value,payload:JSON.parse(el('t-payload').value)},'t-out')">签名</button>
-<pre id="t-out" class="small">与腾讯云官方测试向量逐字节对拍过</pre></div>
+    <section class="card panel hidden" id="panel-date_calc"><h2>日期计算 date_calc</h2>
+     <div class="row"><div><label>操作</label><select id="d-op"><option>add_days</option><option>diff_days</option><option>weekday</option><option>days_in_month</option><option>is_leap_year</option><option>today</option></select></div>
+     <div><label>date / from / year</label><input id="d-a" value="2026-11-17"></div>
+     <div><label>days / to / month</label><input id="d-b" value="25"></div></div>
+     <button onclick="callTool('date_calc')">计算</button>
+     <pre id="d-out" class="small">UTC 口径，凌晨不翻车</pre>
+    </section>
 
-<div class="card"><h2>网页抽取 webpage_extract</h2>
-<label>url（http/https，私网地址被拒绝）</label><input id="w-url" value="https://example.com">
-<button onclick="run('webpage_extract',{url:el('w-url').value},'w-out')">抽取</button>
-<pre id="w-out" class="small">服务端抓取，返回标题/标题链/链接/正文</pre></div>
+    <section class="card panel hidden" id="panel-hotspot_rank"><h2>地点口碑榜 hotspot_rank</h2>
+     <div class="small">热度 = 发帖数×2 + 累计投票×3 + 平均评分×5，置顶优先。与 travel-rank 后端算法逐字一致。MCP 侧同一工具叫 travel_hotspot_rank——对照模式看包装差异。</div>
+     <label>locations（JSON 数组）</label><textarea id="h-loc">[{"id":1,"name":"图书馆","pinned":1},{"id":2,"name":"一食堂"},{"id":3,"name":"操场"}]</textarea>
+     <label>posts（JSON 数组）</label><textarea id="h-post">[{"id":1,"locationId":1,"rating":5,"votes":3},{"id":2,"locationId":1,"rating":4,"votes":1},{"id":3,"locationId":2,"rating":4,"votes":6},{"id":4,"locationId":3,"rating":5,"votes":2}]</textarea>
+     <button onclick="callTool('hotspot_rank')">排名</button>
+     <pre id="h-out" class="small">点「排名」查看结果</pre>
+    </section>
 
-<div class="card"><h2>健康检查 health_ping</h2>
-<button onclick="runGet('health_ping','p-out')">ping</button>
-<pre id="p-out" class="small">edge 函数进程信息</pre></div>
+    <section class="card panel hidden" id="panel-webpage_extract"><h2>网页抽取 webpage_extract</h2>
+     <label>url（http/https，私网地址被拒绝）</label><input id="w-url" value="https://example.com">
+     <button onclick="callTool('webpage_extract')">抽取</button>
+     <pre id="w-out" class="small">服务端抓取，返回标题/标题链/链接/正文</pre>
+    </section>
 
-<div class="card"><h2>SQLite 只读查询 sqlite_query（本地专属）</h2>
-<div class="small">这个工具不在公网版提供：它读本机 sqlite 文件，边界是「只读 + 路径限制在 MCP_SQLITE_ROOT 内 + realpath 挡软链」。公网没有你的本机文件，放上来只能是假演示。本地跑 MCP 服务器即可用：node dist/index.js，宿主配 stdio。完整 8 工具与 48 条断言在仓库。</div></div>
+    <section class="card panel hidden" id="panel-health_ping"><h2>健康检查 health_ping</h2>
+     <button onclick="callTool('health_ping')">ping</button>
+     <pre id="p-out" class="small">edge 函数进程信息：uptimeSec 很小 = 刚冷启动</pre>
+    </section>
 
-<div class="small">源码：github.com/Dongnb66/mcp-toolkit · lib 层与 MCP 工具层共用同一份纯函数</div>
+    <details><summary>为什么没有 sqlite_query？（本地专属工具）</summary>
+     <div class="small" style="margin-top:6px">它读本机 sqlite 文件，边界是「只读 + 路径限制在 MCP_SQLITE_ROOT 内 + realpath 挡软链」。公网没有你的本机文件，放上来只能是假演示。本地跑 MCP 服务器即可用：node dist/index.js，宿主配 stdio。完整 8 工具与全部断言在仓库。</div>
+    </details>
+   </div>
+
+   <!-- 引导课程 -->
+   <div id="mode-course" class="hidden">
+    <div class="tip">三步引导课（切块 → 验签 → 签名），每步四模式：<b>演示</b>看一次真实调用与 trace，<b>练习</b>自己去改参数，<b>测验</b>答对随堂一题才解锁下一步，<b>复盘</b>沉淀要点。进度保存在本浏览器。</div>
+    <div class="course-head"><span id="courseProgress" class="small">0 / 3</span><div class="bar"><i id="courseBar" style="width:0%"></i></div><button class="ghost" style="margin:0" onclick="resetCourse()">重置进度</button></div>
+    <div id="courseDone" class="done-banner hidden">三步全部通过。你已经走完「工具调用 → 报文零件 → 协议薄壳」的完整闭环，去「宿主对照」看同一份 lib 的两种协议形态吧。</div>
+    <div id="courseSteps"></div>
+   </div>
+  </div>
+
+  <!-- 实时 trace 栏 -->
+  <aside class="rail" id="rail">
+   <div class="rail-head"><span class="dot"></span>实时 Trace<span id="railStatus">idle</span></div>
+   <div class="lanes"><span>browser</span><span>edge fn</span><span>src/lib</span></div>
+   <div class="frames" id="railFrames"><div class="rail-empty">在左侧运行任意工具，这里会逐帧出现：<br>① browser → edge 的 HTTP 请求 JSON<br>② edge → lib 的纯函数调用<br>③ lib → edge 的返回值<br>④ edge → browser 的响应 JSON + 耗时<br><br>点击任一报文 → 字段级零件视图。</div></div>
+   <div class="rail-foot">报文可点击 · 每个 key 都是零件 · 解释来自协议与 lib 源码</div>
+  </aside>
+ </div>
+
+ <!-- 宿主对照 -->
+ <div id="mode-compare" class="hidden">
+  <div class="cmp-banner"><b>卖点可视化：lib 零 MCP 依赖，协议只是薄壳。</b>左边是同一份 src/lib 跑在 MCP stdio 宿主时的 JSON-RPC 报文形态（initialize → tools/list → tools/call，仿真但形态与真实 SDK 一致，每个字段可点击）；右边是它在 Sites edge 宿主上的<b>真实调用</b> trace。业务入参与计算结果完全同源，差异只在传输 / 鉴权 / 生命周期 / 包装。</div>
+  <div class="caps-row"><b>对照开关（capability 协商）：</b>
+   <label><input type="checkbox" id="cap-listChanged" onchange="capsChanged()">server tools.listChanged</label>
+   <label><input type="checkbox" id="cap-sampling" onchange="capsChanged()">client sampling</label>
+   <label><input type="checkbox" id="cap-roots" onchange="capsChanged()">client roots</label>
+   <span id="capsDiff"></span>
+  </div>
+  <div class="cmp-grid">
+   <div class="cmp-col">
+    <h3>MCP stdio 宿主 · JSON-RPC 序列</h3>
+    <div class="sub">宿主拉起子进程 → 握手 → 发现 → 调用。绿色 = 开关新增字段，红色删除线 = 关闭后消失的字段。点击报文看零件。</div>
+    <div id="stdioSeq"></div>
+   </div>
+   <div class="cmp-col">
+    <h3>Sites edge 宿主 · 真实调用</h3>
+    <div class="sub">无握手、无发现：URL 即工具名，表单即 schema。每次调用独立，按请求冷启动。</div>
+    <button id="cmpRun" onclick="cmpRun()">把当前工具真实调用一次</button>
+    <div id="edgeSeq"><div class="rail-empty">尚未调用。点上方按钮，或对拍左侧 tools/call 的 arguments 与这里的请求体——同一份数据。</div></div>
+   </div>
+  </div>
+  <table class="diff" id="hostDiff"></table>
+ </div>
+
+ <footer>源码：github.com/Dongnb66/mcp-toolkit · lib 层与 MCP 工具层共用同一份纯函数 · 本页 trace/零件/对照为前端纯函数构造（protocol.js，随构建内联），报文形态与 src/tools 的 zod 注册一一对应。</footer>
 </div>
+
+<!-- 零件视图弹窗 -->
+<div id="partsOverlay" class="overlay hidden" onclick="if(event.target===this)closeParts()">
+ <div class="parts-modal">
+  <div class="parts-head"><span id="partsTitle"></span><button onclick="closeParts()">关闭 ×</button></div>
+  <div class="parts-body">
+   <div class="parts-tree" id="partsTree"></div>
+   <div class="parts-explain" id="partsExplain"><h3>字段零件视图</h3><p class="hint">左侧每个 key 都是一个可点击零件。点开看它在协议 / 业务里的作用：JSON-RPC 的 id 如何配对请求响应、inputSchema 如何成为参数合同、verified 为什么只在传 secret 时出现……</p></div>
+  </div>
+ </div>
+</div>
+
+<!--__PROTOCOL_INLINE__-->
 <script>
+'use strict';
 function el(id){return document.getElementById(id)}
 function esc(s){return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;")}
 function show(id,obj){el(id).innerHTML=esc(JSON.stringify(obj,null,2))}
@@ -91,21 +288,6 @@ function dateArgs(){
  if(op==='is_leap_year')return{op,year:Number(a)};
  return{op};
 }
-async function run(tool,body,out){
- el(out).textContent='请求中…';
- try{
-  const r=await fetch('/functions/v1/app/'+tool,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
-  const j=await r.json();
-  show(out,j);
- }catch(e){el(out).innerHTML='<span class="err">'+esc(e.message)+'</span>'}
-}
-async function runGet(tool,out){
- el(out).textContent='请求中…';
- try{
-  const r=await fetch('/functions/v1/app/'+tool);
-  show(out,await r.json());
- }catch(e){el(out).innerHTML='<span class="err">'+esc(e.message)+'</span>'}
-}
 function b64url(s){return btoa(unescape(encodeURIComponent(s))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'')}
 async function makeJwt(){
  const header=b64url(JSON.stringify({alg:'HS256',typ:'JWT'}));
@@ -115,6 +297,228 @@ async function makeJwt(){
  const sigB64=btoa(String.fromCharCode(...new Uint8Array(sig))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
  el('j-token').value=header+'.'+payload+'.'+sigB64;
 }
+
+// ---------- 状态 ----------
+let mode='play', currentTool='text_chunk', lastCall=null;
+let caps={listChanged:false,sampling:false,roots:false};
+const OUT={text_chunk:'c-out',jwt_decode:'j-out',tc3_sign:'t-out',date_calc:'d-out',hotspot_rank:'h-out',webpage_extract:'w-out',health_ping:'p-out'};
+let traceTimer=[];
+
+function collectArgs(tool){
+ switch(tool){
+  case 'text_chunk':return{text:el('c-text').value,chunkSize:Number(el('c-size').value),overlap:Number(el('c-over').value)};
+  case 'jwt_decode':return{token:el('j-token').value,secret:el('j-secret').value||undefined};
+  case 'tc3_sign':return{secretId:el('t-id').value,secretKey:el('t-key').value,timestamp:Number(el('t-ts').value)||undefined,action:el('t-action').value,payload:JSON.parse(el('t-payload').value)};
+  case 'date_calc':return dateArgs();
+  case 'hotspot_rank':return{locations:JSON.parse(el('h-loc').value),posts:JSON.parse(el('h-post').value)};
+  case 'webpage_extract':return{url:el('w-url').value};
+  case 'health_ping':return{};
+ }
+ return{};
+}
+
+// ---------- 工具步骤条 ----------
+function buildTabs(){
+ el('toolTabs').innerHTML=TOOL_ORDER.map((t,i)=>'<button id="tab-'+t+'" onclick="selectTool(\''+t+'\')"><span class="n">'+(i+1)+'</span>'+esc(TOOL_META[t].title)+'</button>').join('');
+}
+function selectTool(t){
+ currentTool=t;
+ TOOL_ORDER.forEach(x=>{el('panel-'+x).classList.toggle('hidden',x!==t);el('tab-'+x).classList.toggle('on',x===t)});
+ if(mode==='compare')renderCompare();
+}
+function setMode(m){
+ mode=m;
+ ['play','course','compare'].forEach(x=>{el('m-'+x).classList.toggle('on',x===m)});
+ el('mode-play').classList.toggle('hidden',m!=='play');
+ el('mode-course').classList.toggle('hidden',m!=='course');
+ el('mode-compare').classList.toggle('hidden',m!=='compare');
+ el('grid-main').classList.toggle('hidden',m==='compare');
+ if(m==='compare')renderCompare();
+ if(m==='course')renderCourse();
+}
+
+// ---------- 真实调用 + trace 动画 ----------
+function callTool(tool){
+ let body;
+ try{body=collectArgs(tool)}catch(e){show(OUT[tool],{ok:false,error:'入参解析失败：'+e.message});return Promise.resolve(null)}
+ return run(tool,body);
+}
+async function run(tool,body){
+ const out=OUT[tool];
+ el(out).textContent='请求中…';
+ const t0=performance.now();
+ let status=0,resp;
+ try{
+  const method=(TOOL_META[tool].method||'POST');
+  const r=await fetch('/functions/v1/app/'+tool,method==='GET'?{}:{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+  status=r.status;resp=await r.json();
+ }catch(e){resp={ok:false,error:e.message}}
+ const ms=Math.round(performance.now()-t0);
+ show(out,resp);
+ lastCall={tool,body,resp,ms,status};
+ animateTrace(buildEdgeFrames(tool,body,resp,ms,status));
+ if(mode==='compare')renderCompare();
+ return resp;
+}
+function frameHtml(f,i,isStatic){
+ const payload=JSON.stringify(f.payload,null,2);
+ const prev=payload.length>300?payload.slice(0,297)+'…':payload;
+ const laneCls=l=>l==='lib'?'lane from-lib':(l==='edge'?'lane from-edge':'lane');
+ return '<div class="frame k-'+f.kind+(isStatic?' static':'')+'" data-i="'+i+'" onclick="openFrame('+i+')">'
+  +'<div class="f-head"><span class="'+laneCls(f.from)+'">'+f.from+'</span><span class="arrow">→</span><span class="'+laneCls(f.to)+'">'+f.to+'</span>'
+  +'<span class="kind">'+esc(f.kind)+(f.ms!==undefined?' <span class="ms">'+f.ms+'ms</span>':'')+'</span></div>'
+  +'<div class="f-label">'+esc(f.label)+'</div>'
+  +'<div class="f-body">'+esc(prev)+'</div>'
+  +'<div class="f-parts">点击查看字段零件 ›</div></div>';
+}
+let railFramesCache=[];
+function animateTrace(frames){
+ traceTimer.forEach(clearTimeout);traceTimer=[];
+ railFramesCache=frames;
+ el('railFrames').innerHTML='';
+ el('railStatus').textContent='tracing…';
+ frames.forEach((f,i)=>{
+  traceTimer.push(setTimeout(()=>{
+   el('railFrames').insertAdjacentHTML('beforeend',frameHtml(f,i,false));
+   const node=el('railFrames').lastElementChild;
+   requestAnimationFrame(()=>node.classList.add('in'));
+   el('railFrames').scrollTop=el('railFrames').scrollHeight;
+   if(i===frames.length-1)el('railStatus').textContent='done · '+(frames[3].ms!==undefined?frames[3].ms+'ms':'');
+  },i*380));
+ });
+}
+function openFrame(i){
+ const f=railFramesCache[i];
+ if(f)openParts(f.from+' → '+f.to+' · '+f.label,f.payload);
+}
+
+// ---------- 零件视图 ----------
+function openParts(title,value){
+ el('partsTitle').textContent=title;
+ const parts=walkParts(value);
+ el('partsTree').innerHTML=parts.length?parts.map((p,i)=>'<div class="p-row" id="pr-'+i+'" style="padding-left:'+(p.depth*14)+'px"><button class="p-key" onclick="pickPart('+i+')">'+esc(p.key)+'</button><span class="p-val">'+esc(p.preview)+'</span></div>').join(''):'<div class="hint">（空载荷）</div>';
+ el('partsTree').dataset.parts=JSON.stringify(parts);
+ el('partsExplain').innerHTML='<h3>字段零件视图</h3><p class="hint">左侧每个 key 都是一个可点击零件，点开看它的作用。当前报文共 '+parts.length+' 个零件。</p>';
+ el('partsOverlay').classList.remove('hidden');
+}
+function pickPart(i){
+ const parts=JSON.parse(el('partsTree').dataset.parts||'[]');
+ const p=parts[i];if(!p)return;
+ document.querySelectorAll('.p-row.sel').forEach(n=>n.classList.remove('sel'));
+ const row=el('pr-'+i);if(row)row.classList.add('sel');
+ const ex=explainField(p.path,p.key);
+ el('partsExplain').innerHTML='<h3>'+esc(ex.title)+'</h3><p>'+esc(ex.text)+'</p><p class="hint" style="margin-top:10px">路径 '+esc(p.path)+' · 类型 '+esc(p.type)+'</p>';
+}
+function closeParts(){el('partsOverlay').classList.add('hidden')}
+document.addEventListener('keydown',e=>{if(e.key==='Escape')closeParts()});
+
+// ---------- 宿主对照 ----------
+function readCaps(){return{listChanged:el('cap-listChanged').checked,sampling:el('cap-sampling').checked,roots:el('cap-roots').checked}}
+function capsChanged(){caps=readCaps();renderCompare()}
+function lastSeg(path){const seg=path.split('.').pop();return seg.replace(/\[\d+\]$/,'')}
+function msgHtml(m,idx,diffs){
+ const adds=diffs.filter(d=>d.kind==='added'&&d.msgIndex===idx).map(d=>lastSeg(d.path));
+ const dels=diffs.filter(d=>d.kind==='removed'&&d.msgIndex===idx);
+ let lines=esc(JSON.stringify(m.msg,null,2)).split('\n').map(line=>{
+  if(adds.some(seg=>line.indexOf('"'+seg+'":')>=0))return '<span class="diff-add">'+line+'</span>';
+  return line;
+ });
+ dels.forEach(d=>lines.push('<span class="diff-del">− '+esc(d.path)+' : '+esc(d.value)+'（开关关闭时消失）</span>'));
+ const dir=m.dir==='c2s'?'client → server':'server → client';
+ return '<div class="msg '+m.dir+'" onclick="openStdioMsg('+idx+')"><div class="msg-head"><span>#'+m.seq+'</span><span class="dir">'+dir+'</span><span>'+esc(m.label)+'</span></div><pre>'+lines.join('\n')+'</pre></div>';
+}
+let stdioCache=[];
+function openStdioMsg(i){const m=stdioCache[i];if(m)openParts('MCP stdio · '+m.label,m.msg)}
+function renderCompare(){
+ caps=readCaps();
+ const allOn={listChanged:true,sampling:true,roots:true};
+ const diffs=[...diffHandshake(defaultCaps(),caps).filter(d=>d.kind==='added'),...diffHandshake(allOn,caps).filter(d=>d.kind==='removed')];
+ const adds=diffs.filter(d=>d.kind==='added').length,dels=diffs.filter(d=>d.kind==='removed').length;
+ el('capsDiff').innerHTML='握手 diff：<b class="add">+'+adds+' 新增（相对全关）</b> / <b class="del">−'+dels+' 缺失（相对全开）</b>';
+ let args={};try{args=collectArgs(currentTool)}catch(e){args={}}
+ const resp=lastCall&&lastCall.tool===currentTool?lastCall.resp:null;
+ stdioCache=buildMcpSequence(currentTool,args,resp,caps);
+ el('stdioSeq').innerHTML=stdioCache.map((m,i)=>msgHtml(m,i,diffs)).join('');
+ if(lastCall){
+  const frames=buildEdgeFrames(lastCall.tool,lastCall.body,lastCall.resp,lastCall.ms,lastCall.status);
+  railFramesCache=frames;
+  el('edgeSeq').innerHTML='<div class="sub" style="margin-top:8px">最近一次真实调用：'+esc(lastCall.tool)+' · HTTP '+lastCall.status+' · '+lastCall.ms+'ms'+(lastCall.tool!==currentTool?'（左侧已切换到 '+esc(currentTool)+'，点按钮重新对拍）':'')+'</div>'+frames.map((f,i)=>frameHtml(f,i,true)).join('');
+ }
+ el('hostDiff').innerHTML='<tr><th style="width:70px">维度</th><th>MCP stdio 宿主</th><th>Sites edge 宿主</th><th style="width:220px">要点</th></tr>'+HOST_DIFF.map(r=>'<tr><td class="dim">'+esc(r.dim)+'</td><td>'+esc(r.stdio)+'</td><td>'+esc(r.edge)+'</td><td class="note">'+esc(r.note)+'</td></tr>').join('');
+}
+function cmpRun(){callTool(currentTool)}
+
+// ---------- 引导课程 ----------
+const LS_KEY='mcp-pg-course-v1';
+function courseProgress(){const v=Number(localStorage.getItem(LS_KEY)||0);return Number.isInteger(v)&&v>=0&&v<=3?v:0}
+function saveProgress(v){localStorage.setItem(LS_KEY,String(v))}
+function resetCourse(){saveProgress(0);renderCourse()}
+function renderCourse(){
+ const prog=courseProgress();
+ el('courseProgress').textContent=prog+' / 3';
+ el('courseBar').style.width=(prog/3*100)+'%';
+ el('courseDone').classList.toggle('hidden',prog<3);
+ el('courseSteps').innerHTML=COURSE.map((s,i)=>{
+  const done=i<prog,locked=i>prog;
+  return '<div class="step'+(done?' done':'')+(locked?' locked':'')+'" id="step-'+i+'">'
+   +'<div class="step-head">'+esc(s.title)+'<span class="step-state">'+(done?'已通过':(locked?'未解锁':'进行中'))+'</span></div>'
+   +'<p class="goal">'+esc(s.goal)+'</p>'
+   +'<div class="step-modes">'
+   +'<button onclick="courseDemo('+i+')"'+(locked?' disabled':'')+'>① 演示</button>'
+   +'<button class="ghost" onclick="coursePractice('+i+')"'+(locked?' disabled':'')+'>② 练习</button>'
+   +'<button class="ghost" onclick="courseQuiz('+i+')"'+(locked?' disabled':'')+'>③ 随堂一题</button>'
+   +'<button class="ghost" onclick="courseReview('+i+')"'+(done?'':' disabled')+'>④ 复盘</button>'
+   +'</div>'
+   +'<div class="mini-out" id="mini-'+i+'"></div>'
+   +'<div class="quiz hidden" id="quiz-'+i+'"><div class="q">'+esc(s.quiz.q)+'</div>'
+   +s.quiz.options.map((o,j)=>'<button class="opt" id="opt-'+i+'-'+j+'" onclick="answer('+i+','+j+')">'+esc(o)+'</button>').join('')
+   +'<div class="fb" id="fb-'+i+'"></div></div>'
+   +'<div class="review hidden" id="review-'+i+'">'+esc(s.quiz.review)+'</div>'
+   +'</div>';
+ }).join('');
+}
+function applyDemo(s){
+ if(s.tool==='text_chunk'){el('c-text').value=s.demo.text;el('c-size').value=s.demo.chunkSize;el('c-over').value=s.demo.overlap}
+ if(s.tool==='tc3_sign'){el('t-id').value=s.demo.secretId;el('t-key').value=s.demo.secretKey;el('t-ts').value=s.demo.timestamp;el('t-action').value=s.demo.action;el('t-payload').value=JSON.stringify(s.demo.payload)}
+}
+async function courseDemo(i){
+ const s=COURSE[i];
+ selectTool(s.tool);
+ let body;
+ if(s.demo.useSampleToken){el('j-secret').value=s.demo.secret;await makeJwt();body={token:el('j-token').value,secret:s.demo.secret}}
+ else{applyDemo(s);body=collectArgs(s.tool)}
+ const resp=await run(s.tool,body);
+ const mini=el('mini-'+i);
+ if(mini)mini.textContent=resp&&resp.ok?'演示完成：HTTP 200 · 看右侧 trace 逐帧报文，点击报文可拆零件。':'演示调用失败：'+(resp&&resp.error||'未知错误');
+}
+function coursePractice(i){
+ const s=COURSE[i];
+ if(!s.demo.useSampleToken)applyDemo(s);
+ selectTool(s.tool);setMode('play');
+ el('panel-'+s.tool).scrollIntoView({behavior:'smooth',block:'center'});
+}
+function courseQuiz(i){el('quiz-'+i).classList.toggle('hidden')}
+function courseReview(i){el('review-'+i).classList.toggle('hidden')}
+function answer(i,j){
+ const s=COURSE[i],fb=el('fb-'+i);
+ document.querySelectorAll('#quiz-'+i+' .opt').forEach(n=>n.classList.remove('right','wrong'));
+ if(checkQuiz(i,j)){
+  el('opt-'+i+'-'+j).classList.add('right');
+  fb.innerHTML='<b style="color:#15803d">答对了。</b>'+esc(s.quiz.review)+' 下一步已解锁。';
+  const prog=courseProgress();
+  if(i===prog){saveProgress(prog+1);setTimeout(renderCourse,1400)}
+ }else{
+  el('opt-'+i+'-'+j).classList.add('wrong');
+  fb.innerHTML='<b style="color:#b91c1c">再想想。</b>提示：'+esc(s.quiz.hint);
+ }
+}
+
+// ---------- 启动 ----------
+buildTabs();
+selectTool('text_chunk');
+renderCourse();
+renderCompare();
+setMode('play');
 </script>
 </body>
 </html>
