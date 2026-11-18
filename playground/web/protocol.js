@@ -396,6 +396,64 @@ export const HOST_DIFF = [
   { dim: '错误语义', stdio: '协议级 error{code,message} / 工具级 isError=true 两层', edge: '400/404/405 + {ok:false,error}', note: 'lib 抛出的同一个 Error，两个薄壳各自翻译' },
 ];
 
+// ---------- 视野扇区门控：宿主决定可见性（隐喻：扇区照到的零件才进该宿主的可读取清单） ----------
+
+export const SECTOR_WIDTH = 144; // 扇区角宽（度），边界含端点；15 零件 × 24° 间隔，一扇区最多照 7 件
+
+/** 零件墙 15 件：8 工具 + 3 MCP 方法 + 3 capability + 1 edge HTTP 路由。caps 与宿主对照开关同源。 */
+export function sectorParts(caps) {
+  const c = Object.assign(defaultCaps(), caps || {});
+  const parts = MCP_TOOL_ORDER.map((name, i) => {
+    const edgeEntry = TOOL_ORDER.find((t) => TOOL_META[t].mcpName === name);
+    return {
+      id: name, label: name, kind: 'tool', angle: i * 24,
+      hosts: name === 'sqlite_query' ? ['stdio'] : ['stdio', 'edge'],
+      localOnly: name === 'sqlite_query',
+      edgeTool: edgeEntry || null,
+    };
+  });
+  [
+    { id: 'initialize', label: 'initialize', angle: 192 },
+    { id: 'tools/list', label: 'tools/list', angle: 216 },
+    { id: 'tools/call', label: 'tools/call', angle: 240 },
+  ].forEach((m) => parts.push(Object.assign({ kind: 'method', hosts: ['stdio'] }, m)));
+  [
+    { id: 'roots', label: 'roots', angle: 264, cap: 'roots' },
+    { id: 'sampling', label: 'sampling', angle: 288, cap: 'sampling' },
+    { id: 'tools.listChanged', label: 'tools.listChanged', angle: 312, cap: 'listChanged' },
+  ].forEach((m) => parts.push(Object.assign({ kind: 'capability', hosts: ['stdio'], capOn: !!c[m.cap] }, m)));
+  parts.push({ id: 'http_route', label: 'HTTP 路由 ×7', kind: 'http', angle: 336, hosts: ['edge'] });
+  return parts;
+}
+
+/**
+ * 扇区门控纯函数：host ∈ {'stdio','edge'}，angleDeg 为扇区中心角（任意实数，内部归一化）。
+ * 点亮 = 扇区照到（角距 ≤ SECTOR_WIDTH/2，含边界，跨 0° 环绕）且该宿主真实可见：
+ * - stdio：tools/list 的 7 个公网工具 + initialize/tools/list/tools/call + 按开关声明的 capability；
+ * - edge：7 个 HTTP 路由工具 + HTTP 路由零件，无任何 MCP 握手/capability 零件；
+ * - sqlite_query 本地专属，两个宿主任何角度都不点亮（与页面诚实标注一致）。
+ * 返回 [{...part, inSector, lit, reason}]，reason 仅在未点亮时非空。
+ */
+export function sectorVisibility(host, angleDeg, parts) {
+  const half = SECTOR_WIDTH / 2;
+  const a = ((Number(angleDeg) % 360) + 360) % 360;
+  return parts.map((p) => {
+    const diff = ((p.angle - a + 540) % 360) - 180;
+    const inSector = Math.abs(diff) <= half;
+    const hostSees = p.hosts.indexOf(host) >= 0;
+    const capOk = !p.cap || p.capOn === true;
+    const lit = inSector && hostSees && capOk && !p.localOnly;
+    let reason = '';
+    if (!lit) {
+      if (p.localOnly) reason = '本地专属：公网两个宿主都看不到，本机 stdio 跑 node dist/index.js 才可用';
+      else if (!hostSees) reason = host === 'edge' ? '该宿主看不到：edge 无 MCP 握手与 capability 零件' : '该宿主看不到：stdio 没有 HTTP 路由零件';
+      else if (!capOk) reason = '该宿主看不到：capability 未声明（去「宿主对照」打开开关）';
+      else reason = '扇区未照到：转动滑杆让它进入视野';
+    }
+    return Object.assign({}, p, { inSector, lit, reason });
+  });
+}
+
 // ---------- 引导课程（慧梯四模式简化：演示→练习→测验→复盘） ----------
 
 export const COURSE = [

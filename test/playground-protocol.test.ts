@@ -6,7 +6,7 @@ import {
   walkParts, explainField, previewOf,
   defaultCaps, buildHandshake, diffHandshake, buildToolsList, buildToolsCall,
   buildMcpSequence, mcpResultFor, buildEdgeFrames, libReturnFor, HOST_DIFF,
-  COURSE, checkQuiz,
+  COURSE, checkQuiz, SECTOR_WIDTH, sectorParts, sectorVisibility,
 } from '../playground/web/protocol.js';
 
 describe('MCP 握手与 capability 对照开关', () => {
@@ -168,5 +168,81 @@ describe('宿主对照表与引导课程', () => {
     expect(checkQuiz(99, 0)).toBe(false);
     // 演示密钥必须是连字符格式，不得是真实形态
     expect(COURSE[2].demo.secretId).toBe('AKID-demo-not-a-real-key');
+  });
+});
+
+describe('视野扇区门控（宿主决定可见性）', () => {
+  const ALL_ON = { listChanged: true, sampling: true, roots: true };
+  const pick = (vis, id) => vis.find((v) => v.id === id);
+
+  it('零件墙 15 件：8 工具 + 3 方法 + 3 capability + 1 HTTP 路由，角度唯一铺满整圆', () => {
+    const parts = sectorParts(defaultCaps());
+    expect(parts).toHaveLength(15);
+    expect(parts.filter((p) => p.kind === 'tool').map((p) => p.id)).toEqual(MCP_TOOL_ORDER);
+    expect(new Set(parts.map((p) => p.angle)).size).toBe(15);
+    expect(parts.every((p) => p.angle >= 0 && p.angle < 360)).toBe(true);
+    expect(pick(parts, 'travel_hotspot_rank').edgeTool).toBe('hotspot_rank');
+    expect(pick(parts, 'sqlite_query').localOnly).toBe(true);
+  });
+
+  it('边界角度：±SECTOR_WIDTH/2 含端点，越界 1° 即暗；跨 0° 环绕与角度归一化', () => {
+    const parts = sectorParts(defaultCaps());
+    const init = pick(parts, 'initialize'); // 192°
+    const at = (deg) => pick(sectorVisibility('stdio', deg, parts), 'initialize');
+    expect(at(init.angle - SECTOR_WIDTH / 2).inSector).toBe(true);
+    expect(at(init.angle + SECTOR_WIDTH / 2).inSector).toBe(true);
+    expect(at(init.angle - SECTOR_WIDTH / 2 - 1).inSector).toBe(false);
+    expect(at(init.angle + SECTOR_WIDTH / 2 + 1).inSector).toBe(false);
+    expect(at(init.angle).lit).toBe(true);
+    // text_chunk 在 0°：宿主 350° 时角距 10°，跨 0° 仍照亮；负角/超 360° 归一化同义
+    for (const deg of [350, -10, 710]) {
+      expect(pick(sectorVisibility('stdio', deg, parts), 'text_chunk').lit).toBe(true);
+    }
+    expect(pick(sectorVisibility('stdio', 180, parts), 'text_chunk').lit).toBe(false);
+  });
+
+  it('sqlite_query 双暗：任意角度两宿主都不点亮，理由=本地专属', () => {
+    const parts = sectorParts(ALL_ON);
+    for (let a = 0; a < 360; a += 15) {
+      for (const h of ['stdio', 'edge']) {
+        const s = pick(sectorVisibility(h, a, parts), 'sqlite_query');
+        expect(s.lit).toBe(false);
+        expect(s.reason).toContain('本地专属');
+      }
+    }
+  });
+
+  it('edge 无握手/capability 零件；可见集合=7 个 HTTP 路由工具+HTTP 路由零件', () => {
+    const parts = sectorParts(ALL_ON);
+    const forbidden = ['initialize', 'tools/list', 'tools/call', 'roots', 'sampling', 'tools.listChanged'];
+    const union = new Set();
+    for (let a = 0; a < 360; a += 5) {
+      const vis = sectorVisibility('edge', a, parts);
+      for (const id of forbidden) expect(pick(vis, id).lit).toBe(false);
+      vis.forEach((v) => { if (v.lit) union.add(v.id); });
+    }
+    expect([...union].sort()).toEqual([...TOOL_ORDER.map((t) => TOOL_META[t].mcpName), 'http_route'].sort());
+    // 中心 72° 恰好照满 0..144° 的 7 个工具（墙序 = MCP_TOOL_ORDER 去掉 sqlite）
+    const lit = sectorVisibility('edge', 72, parts).filter((v) => v.lit).map((v) => v.id);
+    expect(lit).toEqual(MCP_TOOL_ORDER.filter((n) => n !== 'sqlite_query'));
+  });
+
+  it('stdio 无 HTTP 路由零件；capability 跟随对照开关；满扫可见数 全开13/全关10', () => {
+    const on = sectorParts(ALL_ON);
+    const off = sectorParts(defaultCaps());
+    const unionOn = new Set();
+    const unionOff = new Set();
+    for (let a = 0; a < 360; a += 5) {
+      const vOn = sectorVisibility('stdio', a, on);
+      const vOff = sectorVisibility('stdio', a, off);
+      expect(pick(vOn, 'http_route').lit).toBe(false);
+      expect(pick(vOff, 'http_route').lit).toBe(false);
+      for (const id of ['roots', 'sampling', 'tools.listChanged']) expect(pick(vOff, id).lit).toBe(false);
+      vOn.forEach((v) => { if (v.lit) unionOn.add(v.id); });
+      vOff.forEach((v) => { if (v.lit) unionOff.add(v.id); });
+    }
+    expect(unionOn.size).toBe(13); // 15 − sqlite（本地专属）− http_route（edge 专属）
+    expect(unionOff.size).toBe(10); // 再减 3 个未声明 capability
+    expect(unionOff.has('initialize') && unionOff.has('tools/list') && unionOff.has('tools/call')).toBe(true);
   });
 });

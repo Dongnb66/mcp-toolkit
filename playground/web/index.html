@@ -136,6 +136,31 @@
  .review{margin-top:10px;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:12px;font-size:13px;line-height:1.8;color:#166534}
  .mini-out{font-size:12px;color:#6b7280;margin-top:8px;font-family:var(--mono)}
  .done-banner{background:#f0fdf4;border:1px solid #86efac;border-radius:10px;padding:12px 14px;font-size:13px;color:#15803d;margin:10px 0}
+ /* 视野扇区 */
+ .sector-top{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin:10px 0}
+ #sectorBadge{font-family:var(--mono);font-size:13px;background:var(--dark);color:#e2e8f0;border:1px solid #1e293b;border-radius:999px;padding:6px 14px}
+ #badge-stdio{color:#93c5fd}#badge-edge{color:#fbbf24}
+ .sector-stage{background:var(--dark);border:1px solid #1e293b;border-radius:12px;padding:6px}
+ #sectorSvg{width:100%;height:auto;display:block}
+ #wedge-stdio,#wedge-edge{transform-box:view-box;transform-origin:420px 340px;transition:transform .25s ease}
+ .sp{cursor:default}
+ .sp.lit{cursor:pointer}
+ .sp.lit .dot{filter:drop-shadow(0 0 7px rgba(125,211,252,.75))}
+ .sp text{font-family:var(--mono)}
+ .sector-hosts{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:14px}
+ @media(max-width:900px){.sector-hosts{grid-template-columns:1fr}}
+ .sector-card{background:var(--dark);border:1px solid #1e293b;border-radius:12px;padding:14px;color:#cbd5e1}
+ .sector-card h3{margin:0 0 4px;font-size:14px;color:#f1f5f9}
+ .sector-card .sub{font-size:11px;color:#64748b;margin-bottom:8px;line-height:1.7}
+ .sector-card label{color:#94a3b8}
+ .sector-card input[type=range]{width:100%;accent-color:#3b82f6;padding:0}
+ .sector-card.edge input[type=range]{accent-color:#f59e0b}
+ .sector-ctl{display:flex;align-items:center;gap:10px;font-size:12px;font-family:var(--mono);margin-top:6px}
+ .sector-ctl button{margin:0;background:#1d4ed8;padding:5px 12px;font-size:12px}
+ .chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px;min-height:28px}
+ .chip{margin:0;background:#1e293b;color:#7dd3fc;border:1px solid #334155;border-radius:999px;padding:3px 10px;font-size:11px;font-family:var(--mono)}
+ .chip:hover{background:#1d4ed8;color:#fff;border-color:#1d4ed8}
+ .sector-none{font-size:11px;color:#64748b}
  footer{font-size:12px;color:#6b7280;margin-top:18px;line-height:1.8}
  details{margin:10px 0;font-size:12.5px}
  summary{cursor:pointer;color:#4b5563}
@@ -149,6 +174,7 @@
   <button id="m-play" class="on" onclick="setMode('play')">自由把玩</button>
   <button id="m-course" onclick="setMode('course')">引导课程</button>
   <button id="m-compare" onclick="setMode('compare')">宿主对照</button>
+  <button id="m-sector" onclick="setMode('sector')">视野扇区</button>
  </nav>
 </header>
 <div class="wrap">
@@ -259,6 +285,41 @@
   <table class="diff" id="hostDiff"></table>
  </div>
 
+ <!-- 视野扇区 -->
+ <div id="mode-sector" class="hidden">
+  <div class="cmp-banner"><b>视野扇区门控：capability 由宿主决定，照到的才可见。</b>隐喻来自「视野扇区门控上下文」（B站 哦鲸鲸 BV12gWR6tEH3）：物件批注只有进入视野扇区，才进该 AI 的可读取清单。迁移到协议语境——每个宿主一个扇区扫过零件墙：<b>扇区照到 且 该宿主真实提供</b>的零件点亮（点击进字段零件视图 / 真实 trace），照不到或宿主不提供的暗置。sqlite_query 本地专属，两个扇区都照不亮。</div>
+  <div class="sector-top"><span id="sectorBadge"><span id="badge-stdio"></span> · <span id="badge-edge"></span></span><span class="small">拖动滑杆实时重算点亮集合与计数 · 键盘可达（原生 range 滑杆 + 点亮零件按钮）</span></div>
+  <div class="sector-stage">
+   <svg id="sectorSvg" viewBox="0 0 840 680" role="img" aria-label="零件墙与两个宿主的视野扇区">
+    <g id="sectorGrid"></g>
+    <g id="wedge-edge"></g>
+    <g id="wedge-stdio"></g>
+    <g id="sectorPartsG"></g>
+    <circle cx="420" cy="340" r="34" fill="#111a2e" stroke="#334155"/>
+    <text x="420" y="336" text-anchor="middle" fill="#94a3b8" font-size="11" font-family="monospace">零件墙</text>
+    <text x="420" y="352" text-anchor="middle" fill="#64748b" font-size="10" font-family="monospace">15 件</text>
+   </svg>
+  </div>
+  <div class="sector-hosts">
+   <div class="sector-card">
+    <h3>MCP stdio 宿主 · 蓝色扇区</h3>
+    <div class="sub">可见 = tools/list 暴露的工具 + initialize / tools/list / tools/call + 已声明的 capability。<span id="sectorCaps"></span></div>
+    <label for="ang-stdio">扇区中心角（0-359°）</label>
+    <input type="range" id="ang-stdio" min="0" max="359" step="1" value="216" oninput="sectorInput('stdio')" aria-label="MCP stdio 宿主扇区中心角">
+    <div class="sector-ctl"><span id="deg-stdio">216°</span><button id="scan-stdio" onclick="toggleScan('stdio')">自动扫描</button></div>
+    <div class="chips" id="lit-stdio"></div>
+   </div>
+   <div class="sector-card edge">
+    <h3>Sites edge 宿主 · 琥珀扇区</h3>
+    <div class="sub">可见 = 7 个 HTTP 路由（URL 即工具名）+ HTTP 路由零件；无握手、无 capability——edge 宿主根本不提供这些零件，照到也暗。</div>
+    <label for="ang-edge">扇区中心角（0-359°）</label>
+    <input type="range" id="ang-edge" min="0" max="359" step="1" value="72" oninput="sectorInput('edge')" aria-label="Sites edge 宿主扇区中心角">
+    <div class="sector-ctl"><span id="deg-edge">72°</span><button id="scan-edge" onclick="toggleScan('edge')">自动扫描</button></div>
+    <div class="chips" id="lit-edge"></div>
+   </div>
+  </div>
+ </div>
+
  <footer>源码：github.com/Dongnb66/mcp-toolkit · lib 层与 MCP 工具层共用同一份纯函数 · 本页 trace/零件/对照为前端纯函数构造（protocol.js，随构建内联），报文形态与 src/tools 的 zod 注册一一对应。</footer>
 </div>
 
@@ -328,13 +389,16 @@ function selectTool(t){
 }
 function setMode(m){
  mode=m;
- ['play','course','compare'].forEach(x=>{el('m-'+x).classList.toggle('on',x===m)});
+ ['play','course','compare','sector'].forEach(x=>{el('m-'+x).classList.toggle('on',x===m)});
  el('mode-play').classList.toggle('hidden',m!=='play');
  el('mode-course').classList.toggle('hidden',m!=='course');
  el('mode-compare').classList.toggle('hidden',m!=='compare');
- el('grid-main').classList.toggle('hidden',m==='compare');
+ el('mode-sector').classList.toggle('hidden',m!=='sector');
+ el('grid-main').classList.toggle('hidden',m==='compare'||m==='sector');
  if(m==='compare')renderCompare();
  if(m==='course')renderCourse();
+ if(m==='sector')renderSector();
+ if(m!=='sector'){stopScan('stdio');stopScan('edge');}
 }
 
 // ---------- 真实调用 + trace 动画 ----------
@@ -414,7 +478,7 @@ document.addEventListener('keydown',e=>{if(e.key==='Escape')closeParts()});
 
 // ---------- 宿主对照 ----------
 function readCaps(){return{listChanged:el('cap-listChanged').checked,sampling:el('cap-sampling').checked,roots:el('cap-roots').checked}}
-function capsChanged(){caps=readCaps();renderCompare()}
+function capsChanged(){caps=readCaps();renderCompare();if(mode==='sector')renderSector()}
 function lastSeg(path){const seg=path.split('.').pop();return seg.replace(/\[\d+\]$/,'')}
 function msgHtml(m,idx,diffs){
  const adds=diffs.filter(d=>d.kind==='added'&&d.msgIndex===idx).map(d=>lastSeg(d.path));
@@ -447,6 +511,101 @@ function renderCompare(){
  el('hostDiff').innerHTML='<tr><th style="width:70px">维度</th><th>MCP stdio 宿主</th><th>Sites edge 宿主</th><th style="width:220px">要点</th></tr>'+HOST_DIFF.map(r=>'<tr><td class="dim">'+esc(r.dim)+'</td><td>'+esc(r.stdio)+'</td><td>'+esc(r.edge)+'</td><td class="note">'+esc(r.note)+'</td></tr>').join('');
 }
 function cmpRun(){callTool(currentTool)}
+
+// ---------- 视野扇区（门控纯函数在 protocol.js：sectorParts / sectorVisibility） ----------
+let sectorCache=null;
+const scanTimers={stdio:null,edge:null};
+const SECTOR_CX=420,SECTOR_CY=340,SECTOR_R=230;
+function sectorPt(r,deg){const rad=deg*Math.PI/180;return[SECTOR_CX+r*Math.sin(rad),SECTOR_CY-r*Math.cos(rad)]}
+function buildSectorStage(){
+ const half=SECTOR_WIDTH/2,R=300;
+ const wedge=color=>{const[a,b]=sectorPt(R,-half),[c,d]=sectorPt(R,half);
+  return '<path d="M'+SECTOR_CX+' '+SECTOR_CY+' L'+a.toFixed(2)+' '+b.toFixed(2)+' A'+R+' '+R+' 0 0 1 '+c.toFixed(2)+' '+d.toFixed(2)+' Z" fill="'+color+'" fill-opacity="0.13" stroke="'+color+'" stroke-opacity="0.55" stroke-dasharray="5 4"/>';};
+ el('wedge-stdio').innerHTML=wedge('#3b82f6');
+ el('wedge-edge').innerHTML=wedge('#f59e0b');
+ let grid='<circle cx="'+SECTOR_CX+'" cy="'+SECTOR_CY+'" r="'+SECTOR_R+'" fill="none" stroke="#1e293b" stroke-dasharray="3 5"/>';
+ for(let a=0;a<360;a+=24){const[x1,y1]=sectorPt(SECTOR_R-12,a),[x2,y2]=sectorPt(SECTOR_R+12,a);
+  grid+='<line x1="'+x1.toFixed(1)+'" y1="'+y1.toFixed(1)+'" x2="'+x2.toFixed(1)+'" y2="'+y2.toFixed(1)+'" stroke="#24304a"/>';}
+ el('sectorGrid').innerHTML=grid;
+}
+function sectorPartHtml(p,vs,ve){
+ const rad=p.angle*Math.PI/180,sin=Math.sin(rad),cos=Math.cos(rad);
+ const[x,y]=sectorPt(SECTOR_R,p.angle),[lx,ly]=sectorPt(SECTOR_R+34,p.angle);
+ const litBy=[];if(vs.lit)litBy.push('stdio');if(ve.lit)litBy.push('edge');
+ const lit=litBy.length>0;
+ const fill=lit?(litBy.length===2?'#34d399':(litBy[0]==='stdio'?'#60a5fa':'#fbbf24')):'#16213a';
+ const stroke=lit?fill:'#2b3a55';
+ const anchor=sin>0.35?'start':(sin<-0.35?'end':'middle');
+ const dy=cos>0.7?-8:(cos<-0.7?16:4);
+ const sub=lit?litBy.join('+'):(p.localOnly?'本地专属·双暗':((vs.inSector||ve.inSector)?'该宿主看不到':'扇区外·未照到'));
+ const reason=(vs.inSector?vs.reason:(ve.inSector?ve.reason:vs.reason))||'';
+ const kindChar=p.kind==='tool'?'T':(p.kind==='method'?'M':(p.kind==='capability'?'C':'H'));
+ return '<g class="sp'+(lit?' lit':'')+'" data-part="'+esc(p.id)+'" data-lit="'+(lit?1:0)+'"'+(lit?' onclick="sectorClick(\''+p.id+'\')"':'')+'>'
+  +'<title>'+esc(p.label+' — '+(lit?('可见：'+litBy.join(' + ')):reason))+'</title>'
+  +'<circle class="dot" cx="'+x.toFixed(1)+'" cy="'+y.toFixed(1)+'" r="12" fill="'+fill+'" stroke="'+stroke+'" stroke-width="1.5"/>'
+  +'<text x="'+x.toFixed(1)+'" y="'+(y+3.5).toFixed(1)+'" text-anchor="middle" font-size="9" fill="'+(lit?'#0b1220':'#475569')+'">'+kindChar+'</text>'
+  +'<text x="'+lx.toFixed(1)+'" y="'+(ly+dy).toFixed(1)+'" text-anchor="'+anchor+'" font-size="11" fill="'+(lit?'#e2e8f0':'#64748b')+'">'+esc(p.label)+'</text>'
+  +'<text x="'+lx.toFixed(1)+'" y="'+(ly+dy+13).toFixed(1)+'" text-anchor="'+anchor+'" font-size="9" fill="'+(lit?'#86efac':'#64748b')+'">'+esc(sub)+'</text>'
+  +'</g>';
+}
+function chipHtml(host,v){return '<button class="chip" data-host="'+host+'" data-part="'+esc(v.id)+'" onclick="sectorClick(\''+v.id+'\')">'+esc(v.label)+'</button>'}
+function renderSector(){
+ const capsNow=readCaps();
+ const parts=sectorParts(capsNow);
+ const aS=Number(el('ang-stdio').value),aE=Number(el('ang-edge').value);
+ const visS=sectorVisibility('stdio',aS,parts),visE=sectorVisibility('edge',aE,parts);
+ sectorCache={caps:capsNow,parts,visS,visE};
+ el('wedge-stdio').style.transform='rotate('+aS+'deg)';
+ el('wedge-edge').style.transform='rotate('+aE+'deg)';
+ el('deg-stdio').textContent=aS+'°';el('deg-edge').textContent=aE+'°';
+ el('badge-stdio').textContent='stdio 可见 '+visS.filter(v=>v.lit).length+'/15';
+ el('badge-edge').textContent='edge 可见 '+visE.filter(v=>v.lit).length+'/15';
+ el('sectorCaps').textContent='capability 开关（与宿主对照联动）：listChanged '+(capsNow.listChanged?'开':'关')+' · sampling '+(capsNow.sampling?'开':'关')+' · roots '+(capsNow.roots?'开':'关');
+ el('sectorPartsG').innerHTML=parts.map((p,i)=>sectorPartHtml(p,visS[i],visE[i])).join('');
+ el('lit-stdio').innerHTML=visS.filter(v=>v.lit).map(v=>chipHtml('stdio',v)).join('')||'<span class="sector-none">当前扇区没照到可见零件——转动滑杆</span>';
+ el('lit-edge').innerHTML=visE.filter(v=>v.lit).map(v=>chipHtml('edge',v)).join('')||'<span class="sector-none">当前扇区没照到可见零件——转动滑杆</span>';
+}
+function sectorInput(){renderSector()}
+function toggleScan(host){
+ if(scanTimers[host]){stopScan(host);return}
+ el('scan-'+host).textContent='停止扫描';
+ scanTimers[host]=setInterval(()=>{const inp=el('ang-'+host);inp.value=(Number(inp.value)+2)%360;renderSector()},60);
+}
+function stopScan(host){
+ if(scanTimers[host]){clearInterval(scanTimers[host]);scanTimers[host]=null}
+ const b=el('scan-'+host);if(b)b.textContent='自动扫描';
+}
+function sectorClick(id){
+ const c=sectorCache;if(!c)return;
+ const vs=c.visS.find(v=>v.id===id),ve=c.visE.find(v=>v.id===id);
+ const litS=!!(vs&&vs.lit),litE=!!(ve&&ve.lit);
+ if(!litS&&!litE)return;
+ const p=vs||ve;
+ if(p.kind==='tool'){
+  if(litE&&p.edgeTool){selectTool(p.edgeTool);setMode('play');callTool(p.edgeTool)}
+  else openParts('MCP tools/list 零件 · '+p.id,{name:p.id,description:TOOL_SCHEMAS[p.id].description,inputSchema:TOOL_SCHEMAS[p.id].inputSchema});
+  return;
+ }
+ if(p.kind==='method'){
+  if(id==='initialize'){openParts('MCP stdio · initialize 请求',buildHandshake(c.caps)[0].msg);return}
+  if(id==='tools/list'){openParts('MCP stdio · tools/list 响应（8 工具清单）',buildToolsList()[1].msg);return}
+  let args={};try{args=collectArgs(currentTool)}catch(e){}
+  const resp=lastCall&&lastCall.tool===currentTool?lastCall.resp:null;
+  openParts('MCP stdio · tools/call 请求',buildMcpSequence(currentTool,args,resp,c.caps)[5].msg);
+  return;
+ }
+ if(p.kind==='capability'){
+  const hs=buildHandshake(c.caps);
+  if(id==='tools.listChanged')openParts('capability · tools.listChanged（服务端声明）',hs[1].msg.result.capabilities);
+  else openParts('capability · '+id+'（客户端声明）',hs[0].msg.params.capabilities);
+  return;
+ }
+ if(p.kind==='http'){
+  let args={};try{args=collectArgs(currentTool)}catch(e){}
+  const method=TOOL_META[currentTool].method||'POST';
+  openParts('edge · HTTP 路由零件（URL 即工具名，表单即 schema）',{method,path:'/functions/v1/app/'+currentTool,body:method==='GET'?{note:'GET 无请求体'}:args,routes:TOOL_ORDER});
+ }
+}
 
 // ---------- 引导课程 ----------
 const LS_KEY='mcp-pg-course-v1';
@@ -518,6 +677,8 @@ buildTabs();
 selectTool('text_chunk');
 renderCourse();
 renderCompare();
+buildSectorStage();
+renderSector();
 setMode('play');
 </script>
 </body>
