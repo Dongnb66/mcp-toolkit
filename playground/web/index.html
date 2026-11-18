@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="icon" href="data:,">
+<title>MCP 工具 Playground</title>
+<style>
+ body{font-family:system-ui,"Segoe UI","Microsoft YaHei",sans-serif;margin:0;background:#f6f7f9;color:#1f2937}
+ .wrap{max-width:960px;margin:0 auto;padding:24px 16px 64px}
+ h1{font-size:22px} h2{font-size:16px;margin:0 0 8px}
+ .tip{background:#eef2ff;border:1px solid #c7d2fe;border-radius:8px;padding:10px 12px;font-size:13px;margin:12px 0}
+ .card{background:#fff;border:1px solid #e5e7eb;border-radius:10px;padding:16px;margin:14px 0}
+ label{display:block;font-size:13px;margin:8px 0 4px;color:#374151}
+ input,textarea,select{width:100%;box-sizing:border-box;border:1px solid #d1d5db;border-radius:6px;padding:8px;font-size:13px;font-family:inherit}
+ textarea{min-height:72px}
+ button{margin-top:10px;background:#2563eb;color:#fff;border:0;border-radius:6px;padding:8px 16px;font-size:13px;cursor:pointer}
+ button:hover{background:#1d4ed8}
+ pre{background:#0f172a;color:#e2e8f0;border-radius:8px;padding:12px;font-size:12px;overflow:auto;max-height:320px;white-space:pre-wrap;word-break:break-all}
+ .small{font-size:12px;color:#6b7280}
+ .err{color:#b91c1c}
+ .row{display:flex;gap:10px} .row>div{flex:1}
+</style>
+</head>
+<body>
+<div class="wrap">
+<h1>MCP 工具 Playground</h1>
+<div class="tip">同一份 lib 纯函数源码的两个宿主：左边是 MCP stdio 服务器（任意 MCP 宿主即插即用），这里把它跑在 Qoder Sites 的 edge 函数上，浏览器直接调用。lib 层零 MCP 依赖、零 I/O（网页抓取除外），协议与业务解耦。</div>
+
+<div class="card"><h2>文本切块 text_chunk</h2>
+<label>文本</label><textarea id="c-text">RAG 的第一步是切块。块太小语义碎片化，块太大稀释相关性。滑动窗口加句末断点回退，是精度与完整性之间的折中。重叠保证相邻块信息不丢失。</textarea>
+<div class="row"><div><label>chunkSize</label><input id="c-size" value="40"></div><div><label>overlap</label><input id="c-over" value="8"></div></div>
+<button onclick="run('text_chunk',{text:el('c-text').value,chunkSize:Number(el('c-size').value),overlap:Number(el('c-over').value)},'c-out')">切块</button>
+<pre id="c-out" class="small">点「切块」查看结果</pre></div>
+
+<div class="card"><h2>日期计算 date_calc</h2>
+<div class="row"><div><label>操作</label><select id="d-op"><option>add_days</option><option>diff_days</option><option>weekday</option><option>days_in_month</option><option>is_leap_year</option><option>today</option></select></div>
+<div><label>date / from / year</label><input id="d-a" value="2026-11-17"></div>
+<div><label>days / to / month</label><input id="d-b" value="25"></div></div>
+<button onclick="run('date_calc',dateArgs(),'d-out')">计算</button>
+<pre id="d-out" class="small">UTC 口径，凌晨不翻车</pre></div>
+
+<div class="card"><h2>地点口碑榜 hotspot_rank</h2>
+<div class="small">热度 = 发帖数×2 + 累计投票×3 + 平均评分×5，置顶优先。与 travel-rank 后端算法逐字一致。</div>
+<label>locations（JSON 数组）</label><textarea id="h-loc">[{"id":1,"name":"图书馆","pinned":1},{"id":2,"name":"一食堂"},{"id":3,"name":"操场"}]</textarea>
+<label>posts（JSON 数组）</label><textarea id="h-post">[{"id":1,"locationId":1,"rating":5,"votes":3},{"id":2,"locationId":1,"rating":4,"votes":1},{"id":3,"locationId":2,"rating":4,"votes":6},{"id":4,"locationId":3,"rating":5,"votes":2}]</textarea>
+<button onclick="run('hotspot_rank',{locations:JSON.parse(el('h-loc').value),posts:JSON.parse(el('h-post').value)},'h-out')">排名</button>
+<pre id="h-out" class="small">点「排名」查看结果</pre></div>
+
+<div class="card"><h2>JWT 解码 / 验签 jwt_decode</h2>
+<label>token</label><textarea id="j-token"></textarea>
+<label>secret（可选，填了才验签；HS256/384/512）</label><input id="j-secret" value="demo-secret">
+<button onclick="run('jwt_decode',{token:el('j-token').value,secret:el('j-secret').value||undefined},'j-out')">解码</button>
+<button onclick="makeJwt()">生成示例 token</button>
+<pre id="j-out" class="small">解码不验签；验签才校验，常量时间比较</pre></div>
+
+<div class="card"><h2>TC3 签名 tc3_sign</h2>
+<div class="small">腾讯云 API 3.0 TC3-HMAC-SHA256。请用演示密钥，不要填真实密钥。</div>
+<div class="row"><div><label>secretId</label><input id="t-id" value="AKID-demo-not-a-real-key"></div>
+<div><label>secretKey</label><input id="t-key" value="demo-key-not-a-real-secret"></div></div>
+<div class="row"><div><label>timestamp（秒，可选）</label><input id="t-ts" value="1731888000"></div>
+<div><label>action</label><input id="t-action" value="SendSms"></div></div>
+<label>payload（JSON）</label><textarea id="t-payload">{"PhoneNumberSet":["+8613800000000"],"TemplateId":"1234567"}</textarea>
+<button onclick="run('tc3_sign',{secretId:el('t-id').value,secretKey:el('t-key').value,timestamp:Number(el('t-ts').value)||undefined,action:el('t-action').value,payload:JSON.parse(el('t-payload').value)},'t-out')">签名</button>
+<pre id="t-out" class="small">与腾讯云官方测试向量逐字节对拍过</pre></div>
+
+<div class="card"><h2>网页抽取 webpage_extract</h2>
+<label>url（http/https，私网地址被拒绝）</label><input id="w-url" value="https://example.com">
+<button onclick="run('webpage_extract',{url:el('w-url').value},'w-out')">抽取</button>
+<pre id="w-out" class="small">服务端抓取，返回标题/标题链/链接/正文</pre></div>
+
+<div class="card"><h2>健康检查 health_ping</h2>
+<button onclick="runGet('health_ping','p-out')">ping</button>
+<pre id="p-out" class="small">edge 函数进程信息</pre></div>
+
+<div class="card"><h2>SQLite 只读查询 sqlite_query（本地专属）</h2>
+<div class="small">这个工具不在公网版提供：它读本机 sqlite 文件，边界是「只读 + 路径限制在 MCP_SQLITE_ROOT 内 + realpath 挡软链」。公网没有你的本机文件，放上来只能是假演示。本地跑 MCP 服务器即可用：node dist/index.js，宿主配 stdio。完整 8 工具与 48 条断言在仓库。</div></div>
+
+<div class="small">源码：github.com/Dongnb66/mcp-toolkit · lib 层与 MCP 工具层共用同一份纯函数</div>
+</div>
+<script>
+function el(id){return document.getElementById(id)}
+function esc(s){return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;")}
+function show(id,obj){el(id).innerHTML=esc(JSON.stringify(obj,null,2))}
+function dateArgs(){
+ const op=el('d-op').value,a=el('d-a').value,b=el('d-b').value;
+ if(op==='add_days')return{op,date:a,days:Number(b)};
+ if(op==='diff_days')return{op,from:a,to:b};
+ if(op==='weekday')return{op,date:a};
+ if(op==='days_in_month')return{op,year:Number(a),month:Number(b)};
+ if(op==='is_leap_year')return{op,year:Number(a)};
+ return{op};
+}
+async function run(tool,body,out){
+ el(out).textContent='请求中…';
+ try{
+  const r=await fetch('/functions/v1/app/'+tool,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+  const j=await r.json();
+  show(out,j);
+ }catch(e){el(out).innerHTML='<span class="err">'+esc(e.message)+'</span>'}
+}
+async function runGet(tool,out){
+ el(out).textContent='请求中…';
+ try{
+  const r=await fetch('/functions/v1/app/'+tool);
+  show(out,await r.json());
+ }catch(e){el(out).innerHTML='<span class="err">'+esc(e.message)+'</span>'}
+}
+function b64url(s){return btoa(unescape(encodeURIComponent(s))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'')}
+async function makeJwt(){
+ const header=b64url(JSON.stringify({alg:'HS256',typ:'JWT'}));
+ const payload=b64url(JSON.stringify({sub:'demo',name:'playground',exp:Math.floor(Date.now()/1000)+3600}));
+ const key=await crypto.subtle.importKey('raw',new TextEncoder().encode(el('j-secret').value||'demo-secret'),{name:'HMAC',hash:'SHA-256'},false,['sign']);
+ const sig=await crypto.subtle.sign('HMAC',key,new TextEncoder().encode(header+'.'+payload));
+ const sigB64=btoa(String.fromCharCode(...new Uint8Array(sig))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
+ el('j-token').value=header+'.'+payload+'.'+sigB64;
+}
+</script>
+</body>
+</html>
